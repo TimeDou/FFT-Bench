@@ -34,11 +34,25 @@ bash fft64_benchmark/run_preview.sh submission runs/full --no-build
 
 详细定义请见 [SCORING.md](fft64_benchmark/SCORING.md) 和 [EVALUATION.md](fft64_benchmark/EVALUATION.md)。
 
+## 自主选择 EDA 优化策略
+
+默认综合脚本可以直接使用，也可以复制后修改命令、参数或整体替换：
+
+```bash
+bash build_implementation.sh submission --init-flow
+# 修改 submission/flow/dc_opt.tcl
+bash synopsys.sh build submission --export --out runs/build
+bash run_synopsys_debug.sh submission --profile area --out runs/check
+```
+
+也提供 Yosys/ABC 模板，支持 `rewrite`、`refactor`、`resyn2` 对应序列及技术映射策略搜索。自定义实现导出到 `submission/implementation/`，评测直接测量该网表，并独立检查固定时序和 RTL 一致性。可选 P&R 模板需要匹配的物理套件，当前不参与评分。详见 [OPTIMIZATION.md](OPTIMIZATION.md)。
+
 ## 提交内容
 
 - `submission/rtl/`：自包含、可综合的 `fft64_top` 及其模块
 - `submission/DESIGN_PLAN.md`：当前设计假设、关键决策及其测量依据
 - `submission/measurements.csv`：主要候选的实际测量结果
 - `submission/design_config.json`：可选配置说明；`frame_ii_cycles` 只是提示，**不决定官方吞吐率分数**
+- `submission/flow/`、`submission/implementation/`：使用自定义综合时提交优化脚本和导出的完整实现
 
 Agent 的成绩由可信评测结果决定，不因尝试次数或报告篇幅增加而加分。公开仓库不含准确校准 RTL、隐藏测试种子或出题方结果；这些仅保存在隔离的 FFT-Eval 私有环境中。
