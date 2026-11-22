@@ -35,7 +35,7 @@ bash fft64_benchmark/run_preview.sh submission runs/quick --quick --no-build
 bash fft64_benchmark/run_preview.sh submission runs/full --no-build
 ```
 
-自动后端选择优先使用已就绪的商业工具，否则使用开源**布局前**映射与 STA 流程。不同后端的面积、时序和校准分数不得混合排名。
+自动后端选择优先使用已就绪的商业工具，否则使用开源**布局前**映射与 STA 流程。不同后端的面积、时序和分数不得混合排名。
 
 ## Agent 可自定义综合策略
 
@@ -54,4 +54,4 @@ bash run_synopsys_debug.sh submission --profile area --out runs/custom_check
 
 `submission/rtl/`、`submission/DESIGN_PLAN.md`、`submission/measurements.csv` 为规定交付文件；`design_config.json` 可选。使用自定义综合时还应保留 `flow/` 与 `implementation/`。设计记录用于分析 Agent 的工程决策，不按篇幅或试验次数加分。
 
-公开测试不等于私有隐藏评分。没有匹配的冻结校准，预览可提供实验数据但不能提供有效正式分数。请勿将 FFT-Eval 私有基线、种子或校准数据放入 Agent 工作区。
+完整公开评测直接使用公开的归一化公式和数值锚点，返回有效的分项、加权贡献和综合预览分数，**无需私有校准**。这些结果用于指导设计迭代；最终隐藏评分使用同一公式，另需通过独立隐藏输入和匹配的平台/协议校准。准确参考电路只验证评测环境，不决定评分分母。请勿将 FFT-Eval 私有基线、种子或校准数据放入 Agent 工作区。
