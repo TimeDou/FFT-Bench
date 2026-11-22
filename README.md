@@ -1,26 +1,31 @@
-# FFT64-Quant | EDA Agent Benchmark
+# FFT64-Quant：EDA Agent 硬件设计 Benchmark
 
-本任务要求 Agent **从零设计并优化一个完整的 64 点定点复数 FFT**。不提供已经实现的 FFT RTL；Agent 可以探索 SDF、MDC、folded 等架构，以及明确的截断、舍入和精度分配策略。任务重点是满足功能与数值约束后，基于**完整硬件测量**自主改进面积、持续吞吐率和首次输出延迟。
+FFT64-Quant 要求 Agent 从公开规格出发，实现一个完整、可综合的 **64 点定点复数 FFT**，并根据真实电路测量改进架构、数值精度与综合策略。任务提供接口、测试工具和设计背景，**不提供可直接使用的 FFT RTL 实现**。缓冲、寄存器、重排序、控制以及算术单元均计入硬件面积。
 
-## 开始任务
+## 任务与评分
 
-若部署目录为同级的 `FFT-Bench/`、`Synopsys/` 和 `port.txt`，在本仓库根目录运行：
+首先阅读 [中文题面](fft64_benchmark/TASK_ZH.md)或 [English task](fft64_benchmark/TASK_EN.md)，并核对 [SPEC.json](fft64_benchmark/SPEC.json) 与 [RTL 接口](fft64_benchmark/INTERFACE.md)。默认 `architecture` profile 在满足功能、SQNR、协议、复位、时序及网表验证后，对**完整映射面积（60%）、已验证持续吞吐率（30%）、最大观测首输出延迟（10%）**计算连续分数。`resolved` 只表示强制规格是否满足，不设置最低面积改善比例；更高的 SQNR 不获得额外奖励。详见 [SCORING.md](fft64_benchmark/SCORING.md) 和 [EVALUATION.md](fft64_benchmark/EVALUATION.md)。
+
+## 在现有 Synopsys 容器中开发
+
+如果目录结构为 `FFT-Bench/`、`Synopsys/`、`port.txt` 并列，其中 `Synopsys/` 映射到容器 `/mnt/mydata`，可在本仓库根目录运行：
 
 ```bash
 bash check_env.sh
 bash run_synopsys_debug.sh submission --quick --out runs/quick
-bash run_synopsys_debug.sh submission --profile area --out runs/ppa
+bash run_synopsys_debug.sh submission --profile area --out runs/area
+bash run_synopsys_debug.sh submission --profile architecture --out runs/architecture
 ```
 
-脚本从 `../port.txt` 读取 SSH 端口，通过 `root@localhost` 调用容器，并使用 `../Synopsys/` ↔ `/mnt/mydata` 共享目录。Agent 可以直接调用工具：
+Agent 也可以直接调用容器工具：
 
 ```bash
 bash synopsys.sh exec -- bash -c 'command -v vcs; command -v dc_shell; command -v pt_shell'
 ```
 
-详见 [容器部署、环境检查和调试说明](REMOTE_SYNOPSYS.md)。这种部署无需在宿主机安装 EDA 工具。旧镜像缺少 Python 3.10+ 时，部署方可使用 `bash check_env.sh --prepare-python`；已有合适解释器时会直接复用。
+这些命令用于**公开开发与调试**。`architecture` 的完整 II 搜索成本较高，建议先运行 `--quick`。环境与 SSH 细节见 [REMOTE_SYNOPSYS.md](REMOTE_SYNOPSYS.md)。
 
-先阅读 [中文任务](fft64_benchmark/TASK_ZH.md) / [English task](fft64_benchmark/TASK_EN.md)、[机器规格](fft64_benchmark/SPEC.json) 和 [背景报告](docs/FFT64-Quant.pdf)。如果工具直接安装在当前环境中，可使用：
+若 EDA 工具直接安装在当前系统中，可使用：
 
 ```bash
 bash fft64_benchmark/setup.sh --check-only
@@ -28,31 +33,23 @@ bash fft64_benchmark/run_preview.sh submission runs/quick --quick --no-build
 bash fft64_benchmark/run_preview.sh submission runs/full --no-build
 ```
 
-## 通过与评分
+自动后端选择优先使用已就绪的商业工具，否则使用开源**布局前**映射与 STA 流程。不同后端的面积、时序和校准分数不得混合排名。
 
-所有必选规格通过即 `resolved=true`，**不要求最低面积节省比例**。默认 `architecture` 分数为：完整映射面积 60%、经过连续帧验证的有效吞吐率 30%、实测最大首输出延迟 10%。非零帧 SQNR 必须不低于 50 dB，但更高 SQNR 不加分。没有同后端的有效校准时，只能提供开发反馈，不能宣称官方有效分数。
+## Agent 可自定义综合策略
 
-详细定义请见 [SCORING.md](fft64_benchmark/SCORING.md) 和 [EVALUATION.md](fft64_benchmark/EVALUATION.md)。
-
-## 自主选择 EDA 优化策略
-
-默认综合脚本可以直接使用，也可以复制后修改命令、参数或整体替换：
+Agent 可以修改 RTL，也可以自主调整 DC、Yosys 和 ABC 的优化命令与顺序。初始化模板：
 
 ```bash
 bash build_implementation.sh submission --init-flow
-# 修改 submission/flow/dc_opt.tcl
-bash synopsys.sh build submission --export --out runs/build
-bash run_synopsys_debug.sh submission --profile area --out runs/check
+# 修改 submission/flow/dc_opt.tcl 或 Yosys/ABC 模板
+bash synopsys.sh build submission --export --out runs/custom_build
+bash run_synopsys_debug.sh submission --profile area --out runs/custom_check
 ```
 
-也提供 Yosys/ABC 模板，支持 `rewrite`、`refactor`、`resyn2` 对应序列及技术映射策略搜索。自定义实现导出到 `submission/implementation/`，评测直接测量该网表，并独立检查固定时序和 RTL 一致性。可选 P&R 模板需要匹配的物理套件，当前不参与评分。详见 [OPTIMIZATION.md](OPTIMIZATION.md)。
+构建会导出 `submission/implementation/mapped.v` 与 `manifest.json`。评测器**直接导入并测量该网表**，使用固定标准单元库与时序约束、核对 RTL/网表行为；**不会在隐藏评分中运行 Agent 提交的脚本**。没有自定义实现时使用默认综合流程。详细说明见 [OPTIMIZATION.md](OPTIMIZATION.md)。可选 P&R 模板不参与当前分数。
 
-## 提交内容
+## 提交文件
 
-- `submission/rtl/`：自包含、可综合的 `fft64_top` 及其模块
-- `submission/DESIGN_PLAN.md`：当前设计假设、关键决策及其测量依据
-- `submission/measurements.csv`：主要候选的实际测量结果
-- `submission/design_config.json`：可选配置说明；`frame_ii_cycles` 只是提示，**不决定官方吞吐率分数**
-- `submission/flow/`、`submission/implementation/`：使用自定义综合时提交优化脚本和导出的完整实现
+`submission/rtl/`、`submission/DESIGN_PLAN.md`、`submission/measurements.csv` 为规定交付文件；`design_config.json` 可选。使用自定义综合时还应保留 `flow/` 与 `implementation/`。设计记录用于分析 Agent 的工程决策，不按篇幅或试验次数加分。
 
-Agent 的成绩由可信评测结果决定，不因尝试次数或报告篇幅增加而加分。公开仓库不含准确校准 RTL、隐藏测试种子或出题方结果；这些仅保存在隔离的 FFT-Eval 私有环境中。
+公开测试不等于私有隐藏评分。没有匹配的冻结校准，预览可提供实验数据但不能提供有效正式分数。请勿将 FFT-Eval 私有基线、种子或校准数据放入 Agent 工作区。
